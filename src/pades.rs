@@ -95,7 +95,14 @@ fn value_end(b: &[u8], i: usize) -> Result<usize, String> {
                 j = skip_ws(b, j);
                 match b.get(j) {
                     Some(b']') => return Ok(j + 1),
-                    Some(_) => j = value_end(b, j)?,
+                    Some(_) => {
+                        // Each element moves on, or the array is broken.
+                        let next = value_end(b, j)?;
+                        if next <= j {
+                            return Err(bad());
+                        }
+                        j = next;
+                    }
                     None => return Err(bad()),
                 }
             }
@@ -166,6 +173,9 @@ fn entries(dict: &[u8]) -> Result<Vec<(String, Vec<u8>)>, String> {
         let key = String::from_utf8_lossy(&dict[i + 1..key_end]).to_string();
         let v_start = skip_ws(dict, key_end);
         let v_end = value_end(dict, v_start)?;
+        if v_end <= v_start {
+            return Err("unreadable PDF dictionary".into());
+        }
         out.push((key, dict[v_start..v_end].to_vec()));
         i = v_end;
     }
@@ -645,7 +655,9 @@ pub fn verify(pdf: &[u8], authority: &[u8]) -> Vec<Found> {
             .collect();
         let [a, b, c, d] = nums[..] else { continue };
         if a != 0
-            || b >= c
+            || c < b + 2
+            || pdf.get(c - 1) != Some(&b'>')
+            || !pdf[b + 1..c - 1].iter().all(u8::is_ascii_hexdigit)
             || c.checked_add(d).is_none_or(|e| e > pdf.len())
             || pdf.get(b) != Some(&b'<')
         {

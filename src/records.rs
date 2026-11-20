@@ -113,6 +113,74 @@ async fn case_id(tx: &mut dyn AsyncTx, reference: &str) -> StoreResult<String> {
 }
 
 /// Files a record: the PDF goes to the file store first, then its row.
+async fn insert(
+    s: &dyn AsyncStore,
+    r: &NewRecord<'_>,
+    id: &str,
+    key: &str,
+    digest: &str,
+    case: &str,
+    at: i64,
+) -> Result<String, String> {
+    let mut tx = s.begin().await.map_err(|e| e.to_string())?;
+    let case_id = case_id(tx.as_mut(), case)
+        .await
+        .map_err(|e| e.to_string())?;
+    let n = tx
+        .query(
+            "SELECT COUNT(*) FROM records_items WHERE case_id = $1",
+            &[case_id.as_str().into()],
+        )
+        .await
+        .map_err(|e| e.to_string())?
+        .first()
+        .and_then(|row| row.int(0))
+        .unwrap_or(0)
+        + 1;
+    // Stored with its case (unique across cases); shown short ("0114-001").
+    let reference = format!("{case}-{n:03}");
+    let keep_until = at + keep_years(r.kind) * 365 * 86_400_000 + 3 * 86_400_000;
+    tx.execute(
+        "INSERT INTO records_items (id, case_id, reference, title, kind, label, file_key, sha256, size, filed_by, filed_at, source, keep_until) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
+        &[
+            id.into(),
+            case_id.as_str().into(),
+            reference.as_str().into(),
+            r.title.into(),
+            r.kind.into(),
+            crate::store::value_opt_text(r.label),
+            key.into(),
+            digest.into(),
+            (r.pdf.len() as i64).into(),
+            r.by.into(),
+            at.into(),
+            r.source.into(),
+            keep_until.into(),
+        ],
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    let mut readers: Vec<&String> = r.readers.iter().collect();
+    readers.sort();
+    readers.dedup();
+    for u in readers {
+        tx.execute(
+            "INSERT INTO records_readers (record_id, user_id) VALUES ($1, $2)",
+            &[id.into(), u.as_str().into()],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    }
+    tx.execute(
+        "INSERT INTO records_events (record_id, at, kind, detail) VALUES ($1, $2, 'filed', $3)",
+        &[id.into(), at.into(), case.into()],
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    tx.commit().await.map_err(|e| e.to_string())?;
+    Ok(reference)
+}
+
 pub async fn file(instance: &Instance, r: NewRecord<'_>) -> Result<ItemRef, String> {
     let at = now();
     let case = r
@@ -131,62 +199,22 @@ pub async fn file(instance: &Instance, r: NewRecord<'_>) -> Result<ItemRef, Stri
         .map(|b| format!("{b:02x}"))
         .collect();
     let s = instance.store.as_ref();
-    let mut tx = s.begin().await.map_err(|e| e.to_string())?;
-    let case_id = case_id(tx.as_mut(), &case)
-        .await
-        .map_err(|e| e.to_string())?;
-    let n = tx
-        .query(
-            "SELECT COUNT(*) FROM records_items WHERE case_id = $1",
-            &[case_id.as_str().into()],
-        )
-        .await
-        .map_err(|e| e.to_string())?
-        .first()
-        .and_then(|row| row.int(0))
-        .unwrap_or(0)
-        + 1;
-    let short = case.rsplit('/').next().unwrap_or(&case).to_string();
-    let reference = format!("{short}-{n:03}");
-    let keep_until = at + keep_years(r.kind) * 365 * 86_400_000 + 3 * 86_400_000;
-    tx.execute(
-        "INSERT INTO records_items (id, case_id, reference, title, kind, label, file_key, sha256, size, filed_by, filed_at, source, keep_until) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
-        &[
-            id.as_str().into(),
-            case_id.as_str().into(),
-            reference.as_str().into(),
-            r.title.into(),
-            r.kind.into(),
-            crate::store::value_opt_text(r.label),
-            key.as_str().into(),
-            digest.as_str().into(),
-            (r.pdf.len() as i64).into(),
-            r.by.into(),
-            at.into(),
-            r.source.into(),
-            keep_until.into(),
-        ],
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-    let mut readers: Vec<&String> = r.readers.iter().collect();
-    readers.sort();
-    readers.dedup();
-    for u in readers {
-        tx.execute(
-            "INSERT INTO records_readers (record_id, user_id) VALUES ($1, $2)",
-            &[id.as_str().into(), u.as_str().into()],
-        )
-        .await
-        .map_err(|e| e.to_string())?;
-    }
-    tx.execute(
-        "INSERT INTO records_events (record_id, at, kind, detail) VALUES ($1, $2, 'filed', $3)",
-        &[id.as_str().into(), at.into(), case.as_str().into()],
-    )
-    .await
-    .map_err(|e| e.to_string())?;
-    tx.commit().await.map_err(|e| e.to_string())?;
+    // Two filings to one case at once may pick the same number: the one
+    // that loses tries again. The file goes only if no row is made.
+    let mut tries = 0;
+    let reference = loop {
+        tries += 1;
+        match insert(s, &r, &id, &key, &digest, &case, at).await {
+            Ok(reference) => break reference,
+            Err(e) if tries < 5 && e.contains("UNIQUE") || tries < 5 && e.contains("unique") => {
+                continue
+            }
+            Err(e) => {
+                let _ = instance.files.delete(&key).await;
+                return Err(e);
+            }
+        }
+    };
     ortus_core::auth::audit(
         instance,
         ortus_core::audit::Event::new("records.filed", ortus_core::audit::Outcome::Done)
@@ -263,9 +291,14 @@ pub async fn may_read(
 
 const COLUMNS: &str = "i.id, i.reference, i.title, i.kind, i.label, i.sha256, i.size, i.filed_by, i.filed_at, i.source, i.keep_until, c.reference, i.file_key";
 
+/// A reference as people read it: the case's last part and the number.
+fn short(full: &str) -> String {
+    full.rsplit('/').next().unwrap_or(full).to_string()
+}
+
 fn record_json(r: &ortus_core::storage::Row) -> Value {
     json!({
-        "id": r.text(0), "reference": r.text(1), "title": r.text(2), "kind": r.text(3), "label": r.text(4),
+        "id": r.text(0), "reference": r.text(1).map(short), "title": r.text(2), "kind": r.text(3), "label": r.text(4),
         "sha256": r.text(5), "size": r.int(6), "filedBy": r.text(7), "filedAt": r.int(8), "source": r.text(9),
         "keepUntil": r.int(10), "case": r.text(11),
     })

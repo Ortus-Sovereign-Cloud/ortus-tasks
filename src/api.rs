@@ -24,6 +24,11 @@ pub(crate) async fn signed(request: &Request, instance: &Arc<Instance>) -> Resul
         .user)
 }
 
+/// A path on this site (not `//other.site`, not `/\\other`).
+pub(crate) fn local_path(p: &str) -> bool {
+    p.starts_with('/') && !p.starts_with("//") && !p.starts_with("/\\") && !p.contains(['\r', '\n'])
+}
+
 pub(crate) fn clean(text: &str, max: usize) -> String {
     text.trim()
         .chars()
@@ -275,7 +280,7 @@ async fn create_task(request: &Request, instance: &Arc<Instance>) -> Result<Resp
         .source
         .as_deref()
         .map(|x| clean(x, 500))
-        .filter(|x| x.starts_with('/'));
+        .filter(|x| crate::api::local_path(x));
     let id = store::new_id("t");
     let at = now();
     let mut tx = s.begin().await?;

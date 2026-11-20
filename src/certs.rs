@@ -73,9 +73,14 @@ fn spki_of(point: &[u8]) -> Result<SubjectPublicKeyInfoOwned, String> {
 
 fn time(ms: i64) -> Result<Time, String> {
     let secs = u64::try_from(ms / 1000).map_err(|_| "time before 1970")?;
-    Ok(Time::UtcTime(
-        UtcTime::from_unix_duration(Duration::from_secs(secs)).map_err(|e| e.to_string())?,
-    ))
+    let d = Duration::from_secs(secs);
+    // UTCTime until 2049, GeneralizedTime from 2050 (RFC 5280).
+    match UtcTime::from_unix_duration(d) {
+        Ok(t) => Ok(Time::UtcTime(t)),
+        Err(_) => Ok(Time::GeneralTime(
+            der::asn1::GeneralizedTime::from_unix_duration(d).map_err(|e| e.to_string())?,
+        )),
+    }
 }
 
 fn ext<T: Encode>(oid: ObjectIdentifier, critical: bool, value: &T) -> Result<Extension, String> {

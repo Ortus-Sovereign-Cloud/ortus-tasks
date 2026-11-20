@@ -115,7 +115,7 @@ async fn publish(request: &Request, instance: &Arc<Instance>) -> Result<Response
             .join("\n")
     };
     let source = Some(clean(&input.source, 300))
-        .filter(|x| x.starts_with('/'))
+        .filter(|x| crate::api::local_path(x))
         .unwrap_or_default();
     let id = new_id("m");
     let minutes = (words(&input.body) as i64 / 200).max(1);
@@ -320,6 +320,11 @@ pub fn routes() -> Vec<Route> {
 pub async fn forget(tx: &mut dyn AsyncTx, user: &str) -> StoreResult<()> {
     tx.execute(
         "DELETE FROM records_confirmations WHERE user_id = $1",
+        &[user.into()],
+    )
+    .await?;
+    tx.execute(
+        "UPDATE records_mustread SET published_by = '' WHERE published_by = $1",
         &[user.into()],
     )
     .await

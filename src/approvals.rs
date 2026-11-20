@@ -157,7 +157,7 @@ pub fn routes() -> Vec<Route> {
 /// they made stay valid; new ones cannot be made).
 pub async fn forget(tx: &mut dyn ortus_core::storage::AsyncTx, user: &str) -> Result<(), String> {
     tx.execute(
-        "UPDATE signing_keys SET revoked_at = $1 WHERE user_id = $2 AND revoked_at IS NULL",
+        "UPDATE signing_keys SET revoked_at = COALESCE(revoked_at, $1), key_sealed = '' WHERE user_id = $2",
         &[ortus_core::program::now_ms().into(), user.into()],
     )
     .await

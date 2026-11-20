@@ -356,6 +356,11 @@ pub async fn forget(tx: &mut dyn AsyncTx, user: &str) -> StoreResult<()> {
         &[user.into()],
     )
     .await?;
+    tx.execute(
+        "UPDATE tasks_items SET created_by = '' WHERE created_by = $1",
+        &[user.into()],
+    )
+    .await?;
     for p in owned {
         let next = tx
             .query(
