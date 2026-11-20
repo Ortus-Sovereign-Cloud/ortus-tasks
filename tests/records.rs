@@ -87,6 +87,7 @@ fn records_are_filed_kept_checked_and_policies_confirmed() {
             pdf: &pdf,
             source: "/docs?doc=d1",
             readers: &readers,
+            channel: None,
         }))
         .unwrap();
         let second = ortus_core::runtime::block_on(records.file(NewRecord {
@@ -98,6 +99,7 @@ fn records_are_filed_kept_checked_and_policies_confirmed() {
             pdf: &pdf,
             source: "/docs?doc=d2",
             readers: &readers,
+            channel: None,
         }))
         .unwrap();
 

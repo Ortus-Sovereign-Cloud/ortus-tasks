@@ -233,6 +233,28 @@ pub async fn file(instance: &Instance, r: NewRecord<'_>) -> Result<ItemRef, Stri
         at,
     };
     let _ = ortus_core::search::index(s, &entry).await;
+    // The channel hears of it, from the person who filed it.
+    if let Some(channel) = r.channel.filter(|c| !c.trim().is_empty()) {
+        if let Ok(chat) = instance
+            .services
+            .get::<dyn ortus_core::interfaces::Chat>(&instance.switches)
+            .await
+        {
+            let short = reference
+                .rsplit('/')
+                .next()
+                .unwrap_or(&reference)
+                .to_string();
+            let text = format!(
+                "{} is signed and filed as record {short}: /records?record={id}",
+                r.title
+            );
+            if chat.post(r.by, channel, &text).await.is_ok() {
+                let name = format!("#{}", channel.trim_start_matches('#'));
+                let _ = note(s, &id, "posted", &name).await;
+            }
+        }
+    }
     Ok(ItemRef {
         app: "records".into(),
         id: id.clone(),

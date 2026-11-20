@@ -45,6 +45,7 @@ fn references_links_parser_and_leaving() {
                 pdf: &pdf,
                 source: "/docs",
                 readers: &readers,
+                channel: None,
             }));
             assert!(r.is_ok(), "{name}: {case}: {r:?}");
         }

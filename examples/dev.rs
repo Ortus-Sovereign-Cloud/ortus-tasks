@@ -76,6 +76,7 @@ async fn file_sample(request: &Request, instance: &Arc<Instance>) -> Result<Resp
             pdf: &signed,
             source: "/docs",
             readers: &readers,
+            channel: None,
         })
         .await
         .map_err(|_| ApiError::internal())?;
