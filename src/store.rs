@@ -377,6 +377,13 @@ pub async fn forget(tx: &mut dyn AsyncTx, user: &str) -> StoreResult<()> {
                     &[n.as_str().into(), p.as_str().into()],
                 )
                 .await?;
+                // The project's tasks stay found: their search entries pass
+                // to the new owner before the core forgets the old one's.
+                tx.execute(
+                    "UPDATE core_search SET owner = $1 WHERE app = 'tasks' AND owner = $2 AND id IN (SELECT id FROM tasks_items WHERE project_id = $3)",
+                    &[n.as_str().into(), user.into(), p.as_str().into()],
+                )
+                .await?;
             }
             None => {
                 let ids: Vec<String> = tx

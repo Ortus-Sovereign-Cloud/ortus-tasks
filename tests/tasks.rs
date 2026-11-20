@@ -380,6 +380,28 @@ fn a_project_board_with_tasks_people_and_checklists() {
             None,
         );
         assert!(after["assignee"].is_null(), "{name}: {after}");
+        // Sam's project with Olena in it passes to her when Sam leaves; its
+        // tasks are still found.
+        let (_, shared) = call(
+            &client,
+            &sam,
+            "POST",
+            "/tasks/projects",
+            Some(json!({"name": "Depot", "members": ["olena@ministry.example"]})),
+        );
+        let shared = shared["id"].as_str().unwrap().to_string();
+        call(
+            &client,
+            &sam,
+            "POST",
+            "/tasks/tasks",
+            Some(json!({"project": shared, "title": "Count the sandbags in depot 2"})),
+        );
+        assert_eq!(
+            1,
+            find("olena@ministry.example", "sandbags").len(),
+            "{name}"
+        );
         // A project whose only member leaves goes with its tasks.
         let (_, solo) = call(
             &client,
@@ -416,5 +438,10 @@ fn a_project_board_with_tasks_people_and_checklists() {
         ))
         .unwrap();
         assert_eq!(Some(0), left[0].int(0), "{name}");
+        assert_eq!(
+            1,
+            find("olena@ministry.example", "sandbags").len(),
+            "{name}: still found after Sam left"
+        );
     }
 }

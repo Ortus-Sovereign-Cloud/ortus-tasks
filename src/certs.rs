@@ -373,7 +373,7 @@ pub async fn revoked_at(store: &dyn AsyncStore, cert: &[u8]) -> Option<i64> {
     let serial = hex(c.tbs_certificate.serial_number.as_bytes());
     store
         .query(
-            "SELECT revoked_at FROM signing_keys WHERE serial = $1",
+            "SELECT revoked_at FROM signing_keys WHERE serial = $1 UNION ALL SELECT revoked_at FROM signing_retired WHERE serial = $1",
             &[serial.as_str().into()],
         )
         .await

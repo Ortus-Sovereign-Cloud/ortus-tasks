@@ -93,6 +93,24 @@ impl App for Approvals {
         approvals::MIGRATIONS
     }
 
+    // The signing keys are sealed: a key rotation re-seals them.
+    fn sealed(&self) -> Vec<ortus_core::secrets::Place> {
+        vec![
+            ortus_core::secrets::Place {
+                table: "signing_ca",
+                id: "id",
+                column: "key_sealed",
+                fields: &[],
+            },
+            ortus_core::secrets::Place {
+                table: "signing_keys",
+                id: "serial",
+                column: "key_sealed",
+                fields: &[],
+            },
+        ]
+    }
+
     fn routes(&self) -> Vec<ortus_core::api::Route> {
         approvals::routes()
     }

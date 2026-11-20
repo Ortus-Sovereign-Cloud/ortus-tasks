@@ -13,10 +13,11 @@ use rust_web_server::prelude::*;
 
 use crate::{certs, pades};
 
-pub const MIGRATIONS: &[Migration] = &[Migration {
-    version: 1,
-    name: "signing authority and personal signing keys",
-    sql: "CREATE TABLE signing_ca (
+pub const MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        name: "signing authority and personal signing keys",
+        sql: "CREATE TABLE signing_ca (
         id TEXT PRIMARY KEY,
         cert {{blob}} NOT NULL,
         key_sealed TEXT NOT NULL,
@@ -31,7 +32,19 @@ pub const MIGRATIONS: &[Migration] = &[Migration {
         revoked_at BIGINT
     );
     CREATE INDEX signing_keys_user ON signing_keys (user_id, revoked_at)",
-}];
+    },
+    Migration {
+        version: 2,
+        name: "certificates of people who left (no keys)",
+        sql: "CREATE TABLE signing_retired (
+        serial TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        cert {{blob}} NOT NULL,
+        created_at BIGINT NOT NULL,
+        revoked_at BIGINT NOT NULL
+    )",
+    },
+];
 
 /// Signs as `user`: their certificate (made the first time), the
 /// authority's certificate with it, the time and the reason.
@@ -156,9 +169,17 @@ pub fn routes() -> Vec<Route> {
 /// A person leaves: their signing certificates are revoked (signatures
 /// they made stay valid; new ones cannot be made).
 pub async fn forget(tx: &mut dyn ortus_core::storage::AsyncTx, user: &str) -> Result<(), String> {
+    // Their certificates move to the retired list (signatures they made
+    // stay checkable); their keys are gone.
     tx.execute(
-        "UPDATE signing_keys SET revoked_at = COALESCE(revoked_at, $1), key_sealed = '' WHERE user_id = $2",
+        "INSERT INTO signing_retired (serial, user_id, cert, created_at, revoked_at) SELECT serial, user_id, cert, created_at, COALESCE(revoked_at, $1) FROM signing_keys WHERE user_id = $2",
         &[ortus_core::program::now_ms().into(), user.into()],
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    tx.execute(
+        "DELETE FROM signing_keys WHERE user_id = $1",
+        &[user.into()],
     )
     .await
     .map(|_| ())

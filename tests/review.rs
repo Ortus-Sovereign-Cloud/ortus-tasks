@@ -146,16 +146,30 @@ fn references_links_parser_and_leaving() {
             }
             tx.commit().await.unwrap();
         });
-        let keys = ortus_core::runtime::block_on(
-            instance
-                .store
-                .query("SELECT key_sealed, revoked_at FROM signing_keys", &[]),
-        )
+        let keys = ortus_core::runtime::block_on(instance.store.query(
+            "SELECT COUNT(*) FROM signing_keys WHERE user_id = $1",
+            &[id.as_str().into()],
+        ))
+        .unwrap();
+        assert_eq!(Some(0), keys[0].int(0), "{name}: no key left");
+        let retired = ortus_core::runtime::block_on(instance.store.query(
+            "SELECT revoked_at FROM signing_retired WHERE user_id = $1",
+            &[id.as_str().into()],
+        ))
         .unwrap();
         assert!(
-            keys.iter()
-                .all(|r| r.text(0) == Some("") && r.int(1).is_some()),
+            !retired.is_empty() && retired.iter().all(|r| r.int(0).is_some()),
             "{name}"
         );
+        // A key rotation re-seals the other keys and is not stopped by it.
+        let places: Vec<ortus_core::secrets::Place> =
+            instance.apps.iter().flat_map(|a| a.sealed()).collect();
+        assert!(places.iter().any(|p| p.table == "signing_keys"), "{name}");
+        ortus_core::runtime::block_on(ortus_core::secrets::seal_all_with(
+            instance.store.as_ref(),
+            &instance.keys,
+            &places,
+        ))
+        .unwrap();
     }
 }
