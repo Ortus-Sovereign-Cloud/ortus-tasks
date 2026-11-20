@@ -1,0 +1,51 @@
+import type { Message } from "ortus-kit";
+
+// The tasks app's texts in English: the keys every other catalog has.
+const en = {
+  tasks: "Tasks",
+  where: "Where you are",
+  project: "Project",
+  newProject: "New project",
+  newProjectOption: "+ New project",
+  projectName: "Project name",
+  members: "Members",
+  addresses: "Addresses, separated by commas",
+  create: "Create",
+  emptyLead: "A project holds a team's tasks on one board: to do, in progress, waiting on others, done.",
+  board: "Board",
+  list: "List",
+  timeline: "Timeline",
+  myTasks: {"one": "My tasks · {count}", "other": "My tasks · {count}"},
+  newTask: "New task",
+  editTask: "Task",
+  todo: "To do",
+  doing: "In progress",
+  waiting: "Waiting on others",
+  done: "Done",
+  task: "Task",
+  who: "Who",
+  due: "Due",
+  column: "Column",
+  title: "Title",
+  notes: "Notes",
+  assignee: "Who does it",
+  address: "Their address",
+  dueAt: "Due",
+  checklist: "Checklist",
+  checklistLines: "Checklist (one item per line)",
+  newItem: "New item",
+  add: "Add",
+  whereFrom: "Where it came from",
+  delete: "Delete",
+  cancel: "Cancel",
+  save: "Save",
+  today: "Today",
+  tomorrow: "Tomorrow",
+  overdue: {"one": "Overdue {count} day", "other": "Overdue {count} days"},
+  checkedOf: "{done} of {all}",
+  noDueTimes: "No task here has a due time yet.",
+};
+
+export type TasksKey = keyof typeof en;
+export type TasksMessage = Message;
+export default en;

@@ -65,4 +65,6 @@ jobs:
             sleep 2
           done
           exit 1
+      - name: The browser
+        run: cd web && npm ci && npx playwright install --with-deps chromium
       - run: ci/check.sh

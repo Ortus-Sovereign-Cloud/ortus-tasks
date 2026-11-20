@@ -8,13 +8,25 @@ repository = "https://github.com/Ortus-Sovereign-Cloud/ortus-tasks"
 publish = false
 
 [dependencies]
+aws-lc-rs = "1.19"
+cms = "0.2"
+der = "0.7"
 # Built from the commit in pins.toml (checked out by ci/fetch.sh), never
 # from the branch: see the patch below.
 ortus-core = { git = "https://github.com/Ortus-Sovereign-Cloud/ortus-core" }
+rust-embed = "8.14.0"
+rust-web-server = "18.34"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+spki = "0.7"
+tokio = { version = "1.54.1", features = ["time", "sync", "macros", "rt"] }
+x509-cert = "0.2"
 
 [dev-dependencies]
 rust-web-server = "18.34"
 serde_json = "1"
+tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread"] }
 
 [patch."https://github.com/Ortus-Sovereign-Cloud/ortus-core"]
 ortus-core = { path = ".deps/ortus-core" }
