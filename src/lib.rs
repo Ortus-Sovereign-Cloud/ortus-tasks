@@ -10,6 +10,7 @@ pub mod index;
 pub mod mustread;
 pub mod pades;
 pub mod records;
+pub mod service;
 pub mod store;
 
 use std::sync::Arc;
@@ -38,6 +39,13 @@ impl App for Tasks {
 
     fn migrations(&self) -> &'static [Migration] {
         store::MIGRATIONS
+    }
+
+    fn provide(&self, instance: &Arc<Instance>, services: &ortus_core::services::Services) {
+        let tasks: Arc<dyn ortus_core::interfaces::Tasks> = Arc::new(service::Service {
+            instance: Arc::downgrade(instance),
+        });
+        services.provide("tasks", tasks);
     }
 
     fn routes(&self) -> Vec<ortus_core::api::Route> {

@@ -253,6 +253,87 @@ struct NewTask {
     source: Option<String>,
 }
 
+/// Makes a task (the API and the Tasks service): its row, its checklist,
+/// the assignee made a member; the assignee hears of it.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn insert_task(
+    instance: &Instance,
+    me: &ortus_core::auth::accounts::User,
+    project: &str,
+    title: &str,
+    notes: &str,
+    assignee: Option<&str>,
+    due_at: Option<i64>,
+    state: &str,
+    source: Option<&str>,
+    checklist: &[String],
+) -> Result<String, ApiError> {
+    let s = instance.store.as_ref();
+    let id = store::new_id("t");
+    let at = now();
+    let mut tx = s.begin().await?;
+    let position = store::next_position(tx.as_mut(), project, state).await?;
+    tx.execute(
+        &format!("INSERT INTO tasks_items ({}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $11, $12)", store::TASK_COLUMNS),
+        &[
+            id.as_str().into(),
+            project.into(),
+            title.into(),
+            notes.into(),
+            value_opt_text(assignee),
+            value_opt_int(due_at),
+            state.into(),
+            position.into(),
+            me.id.as_str().into(),
+            at.into(),
+            value_opt_int((state == "done").then_some(at)),
+            value_opt_text(source),
+        ],
+    )
+    .await?;
+    if let Some(a) = assignee {
+        store::add_member(tx.as_mut(), project, a).await?;
+    }
+    for (n, text) in checklist.iter().enumerate() {
+        let text = clean(text, 300);
+        if text.is_empty() {
+            continue;
+        }
+        tx.execute(
+            "INSERT INTO tasks_checks (task_id, n, text, done) VALUES ($1, $2, $3, 0)",
+            &[id.as_str().into(), (n as i64).into(), text.as_str().into()],
+        )
+        .await?;
+    }
+    // Someone else's task: they hear of it.
+    if let Some(a) = assignee.filter(|a| *a != me.id) {
+        let mut args = serde_json::json!({"who": me.name, "what": title});
+        if let Some(d) = due_at {
+            args["due"] = serde_json::json!(d);
+        }
+        let notice = ortus_core::notify::Notice {
+            app: "tasks",
+            kind: ortus_core::notify::Kind::Update,
+            title: &format!("{} gave you a task: {title}", me.name),
+            detail: "",
+            path: &format!("/tasks?task={id}"),
+            key: Some("task"),
+            args,
+        };
+        ortus_core::notify::add_in(tx.as_mut(), a, &notice).await?;
+    }
+    tx.commit().await?;
+    ortus_core::auth::audit(
+        instance,
+        ortus_core::audit::Event::new("tasks.created", ortus_core::audit::Outcome::Done)
+            .by(&me.id)
+            .on(&id),
+    )
+    .await;
+    index::task(instance, &id).await;
+    Ok(id)
+}
+
 async fn create_task(request: &Request, instance: &Arc<Instance>) -> Result<Response, ApiError> {
     let me = signed(request, instance).await?;
     let input: NewTask = body(request)?;
@@ -281,51 +362,19 @@ async fn create_task(request: &Request, instance: &Arc<Instance>) -> Result<Resp
         .as_deref()
         .map(|x| clean(x, 500))
         .filter(|x| crate::api::local_path(x));
-    let id = store::new_id("t");
-    let at = now();
-    let mut tx = s.begin().await?;
-    let position = store::next_position(tx.as_mut(), &p.id, &state).await?;
-    tx.execute(
-        &format!("INSERT INTO tasks_items ({}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $11, $12)", store::TASK_COLUMNS),
-        &[
-            id.as_str().into(),
-            p.id.as_str().into(),
-            title.as_str().into(),
-            clean(&input.notes, 20_000).as_str().into(),
-            value_opt_text(assignee.as_deref()),
-            value_opt_int(input.due_at),
-            state.as_str().into(),
-            position.into(),
-            me.id.as_str().into(),
-            at.into(),
-            value_opt_int((state == "done").then_some(at)),
-            value_opt_text(source.as_deref()),
-        ],
+    let id = insert_task(
+        instance,
+        &me,
+        &p.id,
+        &title,
+        &clean(&input.notes, 20_000),
+        assignee.as_deref(),
+        input.due_at,
+        &state,
+        source.as_deref(),
+        &input.checklist,
     )
     .await?;
-    if let Some(a) = &assignee {
-        store::add_member(tx.as_mut(), &p.id, a).await?;
-    }
-    for (n, text) in input.checklist.iter().enumerate() {
-        let text = clean(text, 300);
-        if text.is_empty() {
-            continue;
-        }
-        tx.execute(
-            "INSERT INTO tasks_checks (task_id, n, text, done) VALUES ($1, $2, $3, 0)",
-            &[id.as_str().into(), (n as i64).into(), text.as_str().into()],
-        )
-        .await?;
-    }
-    tx.commit().await?;
-    ortus_core::auth::audit(
-        instance,
-        ortus_core::audit::Event::new("tasks.created", ortus_core::audit::Outcome::Done)
-            .by(&me.id)
-            .on(&id),
-    )
-    .await;
-    index::task(instance, &id).await;
     get_task_of(instance, &id).await
 }
 

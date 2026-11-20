@@ -445,3 +445,106 @@ fn a_project_board_with_tasks_people_and_checklists() {
         );
     }
 }
+
+/// The Tasks service other apps use (a call's action item): the task goes
+/// into the creator's "Action items" project, the assignee is made a
+/// member and hears of it; an assignee who is not a colleague is refused.
+#[test]
+fn other_apps_make_tasks_and_the_assignee_hears() {
+    for (name, instance, _keep) in common::installations() {
+        for app in instance.apps.clone() {
+            app.provide(&instance, &instance.services);
+        }
+        let client = TestClient::new(ortus_core::app(Arc::clone(&instance)));
+        let olena = signed_in(&instance, "olena@ministry.example", Role::Member);
+        let marek = signed_in(&instance, "marek@ministry.example", Role::Member);
+        let id = |e: &str| {
+            ortus_core::runtime::block_on(ortus_core::auth::accounts::by_email(
+                instance.store.as_ref(),
+                e,
+            ))
+            .unwrap()
+            .unwrap()
+            .id
+        };
+        let (olena_id, marek_id) = (id("olena@ministry.example"), id("marek@ministry.example"));
+        let tasks = ortus_core::runtime::block_on(
+            instance
+                .services
+                .get::<dyn ortus_core::interfaces::Tasks>(&instance.switches),
+        )
+        .expect("tasks provides Tasks");
+        let from = ortus_core::interfaces::ItemRef {
+            app: "calls".into(),
+            id: "c1".into(),
+            path: "/calls?room=r1".into(),
+        };
+        let made = ortus_core::runtime::block_on(tasks.create(
+            &olena_id,
+            "Bus escort",
+            &marek_id,
+            Some(1_800_000_000_000),
+            Some(from),
+        ))
+        .unwrap();
+        assert!(made.path.starts_with("/tasks?task="), "{name}");
+        // Again: the same project.
+        ortus_core::runtime::block_on(tasks.create(
+            &olena_id,
+            "Open school shelter",
+            &olena_id,
+            None,
+            None,
+        ))
+        .unwrap();
+        let (_, mine) = call(&client, &marek, "GET", "/tasks/mine", None);
+        assert!(mine.to_string().contains("Bus escort"), "{name}: {mine}");
+        let (_, projects) = call(&client, &olena, "GET", "/tasks/projects", None);
+        assert_eq!(
+            1,
+            projects["projects"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|p| p["name"] == "Action items")
+                .count(),
+            "{name}: {projects}"
+        );
+        let (_, his) = call(&client, &marek, "GET", "/notifications", None);
+        let n = his["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|i| i["key"] == "task")
+            .cloned()
+            .expect("a task notification");
+        assert_eq!(
+            ("Bus escort", 1_800_000_000_000i64),
+            (
+                n["args"]["what"].as_str().unwrap(),
+                n["args"]["due"].as_i64().unwrap()
+            ),
+            "{name}"
+        );
+        let (_, hers) = call(&client, &olena, "GET", "/notifications", None);
+        assert!(
+            !hers["items"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|i| i["key"] == "task"),
+            "{name}: not for one's own"
+        );
+        assert!(
+            ortus_core::runtime::block_on(tasks.create(
+                &olena_id,
+                "x",
+                "nobody@nowhere.example",
+                None,
+                None
+            ))
+            .is_err(),
+            "{name}"
+        );
+    }
+}
