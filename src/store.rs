@@ -6,11 +6,10 @@ use ortus_core::storage::{AsyncStore, AsyncTx, Migration, Row, StoreResult, Valu
 
 use serde_json::{json, Value as Json};
 
-pub const MIGRATIONS: &[Migration] = &[
-    Migration {
-        version: 1,
-        name: "projects, tasks, checklists",
-        sql: "CREATE TABLE tasks_projects (
+pub const MIGRATIONS: &[Migration] = &[Migration {
+    version: 1,
+    name: "projects, tasks, checklists",
+    sql: "CREATE TABLE tasks_projects (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         owner_id TEXT NOT NULL,
@@ -46,27 +45,7 @@ pub const MIGRATIONS: &[Migration] = &[
         done BIGINT NOT NULL,
         PRIMARY KEY (task_id, n)
     )",
-    },
-    Migration {
-        version: 2,
-        name: "signing authority and personal signing keys",
-        sql: "CREATE TABLE signing_ca (
-        id TEXT PRIMARY KEY,
-        cert {{blob}} NOT NULL,
-        key_sealed TEXT NOT NULL,
-        created_at BIGINT NOT NULL
-    );
-    CREATE TABLE signing_keys (
-        user_id TEXT NOT NULL,
-        serial TEXT PRIMARY KEY,
-        cert {{blob}} NOT NULL,
-        key_sealed TEXT NOT NULL,
-        created_at BIGINT NOT NULL,
-        revoked_at BIGINT
-    );
-    CREATE INDEX signing_keys_user ON signing_keys (user_id, revoked_at)",
-    },
-];
+}];
 
 /// The columns of a project's board, in order.
 pub const STATES: [&str; 4] = ["todo", "doing", "waiting", "done"];
