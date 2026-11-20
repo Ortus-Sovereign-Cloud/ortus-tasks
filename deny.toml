@@ -1,0 +1,41 @@
+# Licence and source rules for every Ortus dependency, checked by CI with
+# `cargo deny check`. Ortus is MIT OR Apache-2.0 and takes permissive
+# dependencies only: no GPL, AGPL, LGPL or MPL. Do not add a licence or an
+# exception here without the owner's agreement.
+
+[graph]
+all-features = true
+
+[advisories]
+ignore = []
+
+[licenses]
+allow = [
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "ISC",
+    "Zlib",
+    "0BSD",
+    "CC0-1.0",
+    "Unlicense",
+    "Unicode-3.0",
+    # Mozilla's CA list in webpki-roots.
+    "CDLA-Permissive-2.0",
+]
+confidence-threshold = 0.9
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+# Ortus crates depend on each other by git until they are published.
+allow-org = { github = ["Ortus-Sovereign-Cloud"] }
