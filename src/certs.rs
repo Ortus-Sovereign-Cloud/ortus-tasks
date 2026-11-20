@@ -304,9 +304,22 @@ pub async fn personal(
         .await
         .map_err(|e| e.to_string())?;
     let now = ortus_core::program::now_ms();
+    // The name in a person's certificate is "Name (address)": a name is
+    // chosen by its holder, the address is not, so a made-up title cannot
+    // hide who signed. A certificate made under an earlier name or address
+    // is not used again.
+    let shown = if user.name.trim().is_empty() || user.name.trim().eq_ignore_ascii_case(&user.email)
+    {
+        user.email.clone()
+    } else {
+        format!("{} ({})", user.name.trim(), user.email)
+    };
     if let Some(r) = rows.first() {
         let cert = r.blob(0).unwrap_or_default().to_vec();
-        if expires(&cert).is_some_and(|end| end > now + 86_400_000) {
+        let current = Certificate::from_der(&cert)
+            .map(|c| common_name(&c) == shown)
+            .unwrap_or(false);
+        if current && expires(&cert).is_some_and(|end| end > now + 86_400_000) {
             return Ok(Signer {
                 cert,
                 key: open_key(instance, r.text(1).unwrap_or_default())?,
@@ -321,7 +334,7 @@ pub async fn personal(
     let org = organisation(instance).await;
     let (pkcs8, key) = new_key()?;
     let cert = issue(
-        name(&user.name, &org, Some(&user.email))?,
+        name(&shown, &org, Some(&user.email))?,
         issuer,
         key.public_key().as_ref(),
         now - 3_600_000,
