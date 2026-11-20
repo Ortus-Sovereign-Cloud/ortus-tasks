@@ -4,7 +4,9 @@
 //! to a program through [`apps`].
 
 pub mod api;
+pub mod certs;
 pub mod index;
+pub mod pades;
 pub mod store;
 
 use std::sync::Arc;
