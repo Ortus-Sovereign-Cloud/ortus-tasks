@@ -12,7 +12,19 @@ fn the_apps_fit_and_are_listed() {
     ortus_core::app::check(&apps).unwrap();
     let instance = ortus_core::instance::testing::instance(apps);
     let client = TestClient::new(ortus_core::app(Arc::clone(&instance)));
-    let body: Value = serde_json::from_str(client.get("/api/v1/apps").send().body_text()).unwrap();
+    let token = ortus_core::instance::testing_auth::signed_in(
+        &instance,
+        "someone@example.org",
+        ortus_core::auth::accounts::Role::Member,
+    );
+    let body: Value = serde_json::from_str(
+        client
+            .get("/api/v1/apps")
+            .header("Authorization", &format!("Bearer {token}"))
+            .send()
+            .body_text(),
+    )
+    .unwrap();
     let ids: Vec<&str> = body["apps"]
         .as_array()
         .unwrap()

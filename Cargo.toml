@@ -18,3 +18,11 @@ serde_json = "1"
 
 [patch."https://github.com/Ortus-Sovereign-Cloud/ortus-core"]
 ortus-core = { path = ".deps/ortus-core" }
+
+# Small debug builds: line numbers for our own code, no debug info for
+# dependencies (a full debug build of the tests took 25 GB).
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
