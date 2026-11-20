@@ -447,8 +447,9 @@ fn a_project_board_with_tasks_people_and_checklists() {
 }
 
 /// The Tasks service other apps use (a call's action item): the task goes
-/// into the creator's "Action items" project, the assignee is made a
-/// member and hears of it; an assignee who is not a colleague is refused.
+/// into the creator's project for that assignee ("Action items · …"), the
+/// assignee is made a member and hears of it but sees nothing the creator
+/// gave others or herself; an assignee who is not a colleague is refused.
 #[test]
 fn other_apps_make_tasks_and_the_assignee_hears() {
     for (name, instance, _keep) in common::installations() {
@@ -488,10 +489,18 @@ fn other_apps_make_tasks_and_the_assignee_hears() {
         ))
         .unwrap();
         assert!(made.path.starts_with("/tasks?task="), "{name}");
-        // Again: the same project.
+        // Again for Marek: the same project; her own goes elsewhere.
         ortus_core::runtime::block_on(tasks.create(
             &olena_id,
-            "Open school shelter",
+            "Check the gauge",
+            &marek_id,
+            None,
+            None,
+        ))
+        .unwrap();
+        ortus_core::runtime::block_on(tasks.create(
+            &olena_id,
+            "Confidential: budget memo",
             &olena_id,
             None,
             None,
@@ -500,22 +509,30 @@ fn other_apps_make_tasks_and_the_assignee_hears() {
         let (_, mine) = call(&client, &marek, "GET", "/tasks/mine", None);
         assert!(mine.to_string().contains("Bus escort"), "{name}: {mine}");
         let (_, projects) = call(&client, &olena, "GET", "/tasks/projects", None);
-        assert_eq!(
-            1,
-            projects["projects"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .filter(|p| p["name"] == "Action items")
-                .count(),
-            "{name}: {projects}"
+        let names: Vec<&str> = projects["projects"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|p| p["name"].as_str())
+            .filter(|n| n.starts_with("Action items"))
+            .collect();
+        assert_eq!(2, names.len(), "{name}: {projects}");
+        assert!(
+            names.contains(&"Action items · marek@ministry.example"),
+            "{name}"
+        );
+        // Marek sees only his project, not her own items.
+        let (_, his_projects) = call(&client, &marek, "GET", "/tasks/projects", None);
+        assert!(
+            !his_projects.to_string().contains("\"Action items\""),
+            "{name}: {his_projects}"
         );
         let (_, his) = call(&client, &marek, "GET", "/notifications", None);
         let n = his["items"]
             .as_array()
             .unwrap()
             .iter()
-            .find(|i| i["key"] == "task")
+            .find(|i| i["key"] == "task" && i["args"]["what"] == "Bus escort")
             .cloned()
             .expect("a task notification");
         assert_eq!(

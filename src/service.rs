@@ -1,6 +1,8 @@
 //! The `Tasks` service other apps use to make a task for someone (a call's
-//! action item, a decision in chat): it goes into the creator's project
-//! named "Action items" (made the first time), the assignee added to it.
+//! action item, a decision in chat): it goes into a project of the
+//! creator's for that assignee alone ("Action items · anna@…", made the
+//! first time; plain "Action items" for one's own), so an assignee sees
+//! only what was given to them.
 
 use std::sync::Weak;
 
@@ -53,14 +55,19 @@ impl ortus_core::interfaces::Tasks for Service {
             if title.is_empty() {
                 return Err("a task has a title".into());
             }
+            let name = if who.id == me.id {
+                ACTION_ITEMS.to_string()
+            } else {
+                format!("{ACTION_ITEMS} · {}", who.email)
+            };
             let project = match store::projects_of(s, &me.id)
                 .await
                 .map_err(|e| e.to_string())?
                 .into_iter()
-                .find(|p| p.name == ACTION_ITEMS && p.owner == me.id)
+                .find(|p| p.name == name && p.owner == me.id)
             {
                 Some(p) => p.id,
-                None => store::create_project(s, &me.id, ACTION_ITEMS, &[])
+                None => store::create_project(s, &me.id, &name, &[])
                     .await
                     .map_err(|e| e.to_string())?,
             };
