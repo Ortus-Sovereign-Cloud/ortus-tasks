@@ -21,7 +21,7 @@ export default defineConfig({
     emptyOutDir: false,
     sourcemap: false,
     target: "es2022",
-    lib: { entry: { app: "src/app.ts", approvals: "src/approvals-app.ts", records: "src/records-app.ts" }, formats: ["es"], fileName: (_, name) => `${name}.js` },
+    lib: { entry: { app: "src/app.ts", approvals: "src/approvals-app.ts", records: "src/records-app.ts", today: "src/today.ts", "approvals-today": "src/approvals-today.ts" }, formats: ["es"], fileName: (_, name) => `${name}.js` },
     rollupOptions: {
       external: ["ortus-kit"],
       output: { paths: { "ortus-kit": "/assets/kit.js" }, chunkFileNames: "[name]-[hash].js" },

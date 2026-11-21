@@ -139,12 +139,13 @@ impl App for Approvals {
         Box::pin(approvals::forget(tx, user_id))
     }
 
-    // This app's entry is approvals.js; the rest is shared.
+    // This app's entry is approvals.js and its start-page card
+    // approvals-today.js; the rest is shared.
     fn web_file(&self, path: &str) -> Option<std::borrow::Cow<'static, [u8]>> {
-        Web::get(if path == "app.js" {
-            "approvals.js"
-        } else {
-            path
+        Web::get(match path {
+            "app.js" => "approvals.js",
+            "today.js" => "approvals-today.js",
+            _ => path,
         })
         .map(|file| file.data)
     }
@@ -197,9 +198,14 @@ impl App for Records {
         })
     }
 
-    // This app's entry is records.js; the rest is shared.
+    // This app's entry is records.js; the rest is shared. It has no card
+    // on the start page (today.js is the tasks app's).
     fn web_file(&self, path: &str) -> Option<std::borrow::Cow<'static, [u8]>> {
-        Web::get(if path == "app.js" { "records.js" } else { path }).map(|file| file.data)
+        match path {
+            "today.js" => None,
+            "app.js" => Web::get("records.js").map(|file| file.data),
+            _ => Web::get(path).map(|file| file.data),
+        }
     }
 }
 

@@ -3,6 +3,12 @@ import type { Message } from "ortus-kit";
 // The tasks app's texts in English: the keys every other catalog has.
 const en = {
   tasks: "Tasks",
+  todayOpenCount: "Open: {count}",
+  todayDue: "due {when}",
+  todayLate: "late since {when}",
+  todayNoTasks: "No open tasks.",
+  todayOpenTasks: "My tasks",
+  todayOpenApprovals: "Open Approvals",
   where: "Where you are",
   project: "Project",
   newProject: "New project",

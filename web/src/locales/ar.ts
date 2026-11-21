@@ -2,6 +2,12 @@ import type { TasksKey, TasksMessage } from "./en.js";
 
 const messages: Record<TasksKey, TasksMessage> = {
   tasks: "المهام",
+  todayOpenCount: "مفتوحة: {count}",
+  todayDue: "موعدها {when}",
+  todayLate: "متأخرة منذ {when}",
+  todayNoTasks: "لا مهام مفتوحة.",
+  todayOpenTasks: "مهامي",
+  todayOpenApprovals: "فتح الموافقات",
   where: "أين أنت",
   project: "المشروع",
   newProject: "مشروع جديد",
