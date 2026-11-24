@@ -58,15 +58,10 @@ fn words(v: &Value) -> usize {
 }
 
 async fn groups_of(instance: &Instance, user: &str) -> StoreResult<Vec<String>> {
-    Ok(instance
-        .store
-        .query(
-            "SELECT g.name FROM core_groups g JOIN core_group_members m ON m.group_id = g.id WHERE m.user_id = $1",
-            &[user.into()],
-        )
+    Ok(ortus_core::people::groups_of(instance.store.as_ref(), user)
         .await?
-        .iter()
-        .filter_map(|r| r.text(0).map(str::to_string))
+        .into_iter()
+        .map(|g| g.name)
         .collect())
 }
 

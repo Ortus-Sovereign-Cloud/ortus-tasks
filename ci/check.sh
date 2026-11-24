@@ -13,6 +13,12 @@ if grep -nE '(margin|padding|border)-(left|right)|^[[:space:]]+(left|right):|tex
   exit 1
 fi
 (cd web && npm ci --silent && npm audit --omit=dev --audit-level=moderate && npx tsc --noEmit && npm run build --silent)
+# The core's tables are the core's: apps read people, groups, quotas and
+# the search index through its functions (ortus_core::people, search).
+if grep -nE '(FROM|JOIN|INTO|UPDATE) core_' src/*.rs; then
+  echo "check: an app reads or writes the core's tables; use ortus_core's functions" >&2
+  exit 1
+fi
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 cargo test

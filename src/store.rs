@@ -379,11 +379,16 @@ pub async fn forget(tx: &mut dyn AsyncTx, user: &str) -> StoreResult<()> {
                 .await?;
                 // The project's tasks stay found: their search entries pass
                 // to the new owner before the core forgets the old one's.
-                tx.execute(
-                    "UPDATE core_search SET owner = $1 WHERE app = 'tasks' AND owner = $2 AND id IN (SELECT id FROM tasks_items WHERE project_id = $3)",
-                    &[n.as_str().into(), user.into(), p.as_str().into()],
-                )
-                .await?;
+                let ids: Vec<String> = tx
+                    .query(
+                        "SELECT id FROM tasks_items WHERE project_id = $1",
+                        &[p.as_str().into()],
+                    )
+                    .await?
+                    .iter()
+                    .filter_map(|r| r.text(0).map(str::to_string))
+                    .collect();
+                ortus_core::search::set_owner_in(&mut *tx, "tasks", user, &n, &ids).await?;
             }
             None => {
                 let ids: Vec<String> = tx
