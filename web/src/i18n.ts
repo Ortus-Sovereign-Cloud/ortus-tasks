@@ -1,4 +1,4 @@
-// The tasks app's texts, in the six languages, through the core's kit.
+// The tasks app's texts, in the languages of Ortus, through the core's kit.
 import {
   appText,
   registerAppMessages,
@@ -15,6 +15,8 @@ const catalogs: Record<
   uk: () => import("./locales/uk.js"),
   de: () => import("./locales/de.js"),
   fr: () => import("./locales/fr.js"),
+  es: () => import("./locales/es.js"),
+  it: () => import("./locales/it.js"),
   ar: () => import("./locales/ar.js"),
 };
 
