@@ -85,7 +85,7 @@ export class OrtusTasksBoard extends LitElement {
     css`
       :host {
         display: block;
-        min-block-size: 100vh;
+        min-block-size: var(--ortus-screen, 100vh);
         color: var(--ortus-text);
       }
       header {
@@ -347,6 +347,14 @@ export class OrtusTasksBoard extends LitElement {
         align-items: center;
         font-size: 14px;
       }
+      .checks input[type="checkbox"] {
+        flex: none;
+        inline-size: 18px;
+        block-size: 18px;
+        margin: 0;
+        padding: 0;
+        accent-color: var(--ortus-accent);
+      }
       .checks .done {
         text-decoration: line-through;
         color: var(--ortus-text-3);
@@ -368,6 +376,82 @@ export class OrtusTasksBoard extends LitElement {
       }
       .from a {
         color: var(--ortus-accent);
+      }
+      .scroll {
+        overflow-x: auto;
+      }
+      /* A phone-sized screen: the toolbar wraps, the board's columns scroll
+         sideways one at a time, tables and the timeline scroll in their box. */
+      @media (max-width: 720px) {
+        header {
+          flex-wrap: wrap;
+          gap: 10px;
+          padding-block: 10px;
+          padding-inline: 12px;
+        }
+        .spacer {
+          display: none;
+        }
+        .tabs {
+          max-inline-size: 100%;
+          overflow-x: auto;
+        }
+        .tabs button {
+          flex: none;
+          min-block-size: 44px;
+        }
+        .button,
+        .crumbs select {
+          block-size: 44px;
+        }
+        .columns {
+          grid-template-columns: none;
+          grid-auto-flow: column;
+          grid-auto-columns: calc(100% - 40px);
+          gap: 12px;
+          padding: 12px;
+          overflow-x: auto;
+          scroll-snap-type: inline mandatory;
+          scroll-padding-inline: 12px;
+        }
+        .column {
+          scroll-snap-align: start;
+        }
+        table {
+          inline-size: max-content;
+          min-inline-size: calc(100% - 24px);
+          margin: 12px;
+        }
+        td button.link {
+          min-block-size: 44px;
+        }
+        .timeline {
+          padding: 12px;
+          overflow-x: auto;
+        }
+        .days,
+        .lane {
+          grid-template-columns: 150px repeat(14, 28px);
+        }
+        .lane > button {
+          min-block-size: 44px;
+          overflow-wrap: anywhere;
+        }
+        .empty {
+          margin: 24px;
+        }
+        dialog {
+          max-inline-size: calc(100vw - 16px);
+        }
+        dialog form {
+          padding: 18px;
+        }
+        dialog select {
+          block-size: 44px;
+        }
+        .pair {
+          grid-template-columns: minmax(0, 1fr);
+        }
       }
     `,
   ];
@@ -596,7 +680,7 @@ export class OrtusTasksBoard extends LitElement {
   }
 
   private list(tasks: Task[], withProject = false): TemplateResult {
-    return html`<table>
+    return html`<div class="scroll"><table>
       <thead>
         <tr>
           <th>${t(this.localize, "task")}</th>
@@ -619,7 +703,7 @@ export class OrtusTasksBoard extends LitElement {
           </tr>`;
         })}
       </tbody>
-    </table>`;
+    </table></div>`;
   }
 
   private timeline(p: Project): TemplateResult {

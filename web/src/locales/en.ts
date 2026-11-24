@@ -44,6 +44,7 @@ const en = {
   whereFrom: "Where it came from",
   delete: "Delete",
   cancel: "Cancel",
+  back: "Back",
   save: "Save",
   today: "Today",
   tomorrow: "Tomorrow",

@@ -4,7 +4,7 @@ import en from "../src/locales/en.js";
 
 const headers = { "X-Requested-With": "ortus" };
 
-test("a filed record: its page, its signatures checked", async ({ page }) => {
+test("a filed record: its page, its signatures checked; on a phone the list, then the record with a back button", async ({ page }) => {
   const filed = await (await page.request.post("/api/v1/records/dev-sample", { headers })).json();
   await page.goto("/records");
   const home = page.locator("ortus-records-home");
@@ -25,6 +25,24 @@ test("a filed record: its page, its signatures checked", async ({ page }) => {
   await page.screenshot({ path: "test-results/record.png" });
   const pdf = await page.request.get(`/api/v1/records/records/${filed.id}/pdf`, { headers });
   expect((await pdf.body()).subarray(0, 5).toString()).toBe("%PDF-");
+
+  // On a phone: the list, then a record full width with a back button.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const fits = async () => expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.goto("/records");
+  const list = page.locator("ortus-records-home");
+  await expect(list.getByRole("table")).toContainText("0114-");
+  await fits();
+  await page.screenshot({ path: "test-results/phone-records.png" });
+  await list.getByRole("link", { name: "Flood response plan 2026" }).first().click();
+  await expect(record.getByRole("region", { name: en.record, exact: true })).toContainText("10 years");
+  await expect(record.locator("canvas")).toHaveCount(1);
+  const app = (await record.boundingBox())!;
+  expect((await record.getByRole("region", { name: en.record, exact: true }).boundingBox())!.width).toBeGreaterThan(app.width - 30);
+  await fits();
+  await page.screenshot({ path: "test-results/phone-record.png", fullPage: true });
+  await record.getByRole("button", { name: en.back }).click();
+  await expect(page.locator("ortus-records-home").getByRole("table")).toBeVisible();
 });
 
 test("must-read policies are read and confirmed one by one", async ({ page }) => {
@@ -42,6 +60,11 @@ test("must-read policies are read and confirmed one by one", async ({ page }) =>
   await expect(confirm).toBeDisabled();
   await read.getByRole("checkbox", { name: en.readAndUnderstood }).check();
   await page.screenshot({ path: "test-results/must-read.png" });
+  // On a phone: one column, nothing wider than the screen.
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.screenshot({ path: "test-results/phone-must-read.png", fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 900 });
   await confirm.click();
   await expect(read.getByRole("article")).toContainText("Summary for new staff.");
   await read.getByRole("checkbox", { name: en.readAndUnderstood }).check();

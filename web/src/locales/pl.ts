@@ -43,6 +43,7 @@ const messages: Record<TasksKey, TasksMessage> = {
   whereFrom: "Skąd pochodzi",
   delete: "Usuń",
   cancel: "Anuluj",
+  back: "Wstecz",
   save: "Zapisz",
   today: "Dziś",
   tomorrow: "Jutro",

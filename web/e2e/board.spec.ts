@@ -70,3 +70,43 @@ test("a project board", async ({ page }) => {
   await expect(board.getByRole("table")).not.toContainText("Hydrology");
   expect(errors).toEqual([]);
 });
+
+test("the board on a phone: columns side by side in their own scroll, the task dialog fits", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.setViewportSize({ width: 390, height: 844 });
+  const fits = async () => expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await page.goto("/tasks");
+  const board = page.locator("ortus-tasks-board");
+  const column = (name: string) => board.getByRole("region", { name });
+  await expect(column(en.todo)).toBeVisible();
+  await fits();
+  // The columns scroll inside the board, one at a time.
+  const columns = board.locator(".columns");
+  expect(await columns.evaluate((e) => e.scrollWidth > e.clientWidth)).toBe(true);
+  await page.screenshot({ path: "test-results/phone-board.png" });
+  await column(en.doing).scrollIntoViewIfNeeded();
+  await expect(column(en.doing)).toBeInViewport();
+  await page.screenshot({ path: "test-results/phone-board-doing.png" });
+  // A task: its dialog fits the screen.
+  await column(en.doing).getByRole("button", { name: /Close road R-12/ }).click();
+  const task = board.getByRole("dialog", { name: "Close road R-12 and divert traffic" });
+  await expect(task).toBeVisible();
+  const box = (await task.boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+  await fits();
+  await page.screenshot({ path: "test-results/phone-task.png" });
+  await task.getByRole("button", { name: en.cancel }).click();
+  await expect(task).toBeHidden();
+  // The list and the timeline scroll in their own box.
+  await board.getByRole("tab", { name: en.list }).click();
+  await expect(board.getByRole("table")).toContainText("Book 6 buses for evacuation");
+  await fits();
+  await page.screenshot({ path: "test-results/phone-list.png" });
+  await board.getByRole("tab", { name: en.timeline }).click();
+  await expect(board.getByRole("table", { name: en.timeline })).toContainText("Hydrology");
+  await fits();
+  await page.screenshot({ path: "test-results/phone-timeline.png" });
+  expect(errors).toEqual([]);
+});

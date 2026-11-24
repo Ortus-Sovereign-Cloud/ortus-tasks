@@ -57,10 +57,13 @@ function stamp(ms: number): string {
   return new Intl.DateTimeFormat(lang(), { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(ms));
 }
 
+/** The back button's arrow; it points the other way right to left. */
+const backArrow = html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>`;
+
 const shared = css`
   :host {
     display: block;
-    min-block-size: 100vh;
+    min-block-size: var(--ortus-screen, 100vh);
     color: var(--ortus-text);
   }
   header {
@@ -106,6 +109,35 @@ const shared = css`
   }
   .error {
     color: var(--ortus-red);
+  }
+  .back {
+    display: none;
+  }
+  .back svg:dir(rtl) {
+    transform: scaleX(-1);
+  }
+  .scroll {
+    overflow-x: auto;
+  }
+  /* A phone-sized screen: one column; the header wraps. */
+  @media (max-width: 720px) {
+    header {
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-block: 10px;
+      padding-inline: 12px;
+    }
+    .back {
+      display: inline-flex;
+      inline-size: 44px;
+      padding: 0;
+    }
+    .button {
+      block-size: 44px;
+    }
+    .card {
+      padding: 18px;
+    }
   }
 `;
 
@@ -234,6 +266,22 @@ export class OrtusRecordsRecord extends LitElement {
       .checks small {
         color: var(--ortus-text-3);
       }
+      @media (max-width: 720px) {
+        .banner {
+          margin-block: 12px 0;
+          margin-inline: 12px;
+          padding-block: 14px;
+          padding-inline: 16px;
+        }
+        .body {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 16px;
+          padding: 12px;
+        }
+        .page {
+          min-block-size: 0;
+        }
+      }
     `,
   ];
 
@@ -288,6 +336,7 @@ export class OrtusRecordsRecord extends LitElement {
     const last = checks.map((c) => c.at ?? 0).reduce((a, b) => Math.max(a, b), 0);
     const years = Math.round((r.keepUntil - r.filedAt) / (365 * 86_400_000));
     return html`<header>
+        <button class="button back" aria-label=${t(this.localize, "back")} @click=${() => location.assign("/records")}>${backArrow}</button>
         <a href="/records">${t(this.localize, "records")}</a><span class="sep">/</span><span>${t(this.localize, "caseNamed", { case: r.case })}</span><span class="sep">/</span><strong>${t(this.localize, "recordNamed", { ref: r.reference })}</strong>
         <span class="spacer"></span>
         ${r.label ? html`<span class="label">${r.label.toUpperCase()}</span>` : nothing}
@@ -471,6 +520,24 @@ export class OrtusRecordsMustRead extends LitElement {
         gap: 12px;
         justify-items: start;
       }
+      @media (max-width: 720px) {
+        .body {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 16px;
+          padding: 12px;
+        }
+        article {
+          min-block-size: 0;
+          padding-block: 24px;
+          padding-inline: 18px;
+        }
+        article h1 {
+          font-size: 24px;
+        }
+        footer {
+          flex-wrap: wrap;
+        }
+      }
     `,
   ];
 
@@ -598,6 +665,20 @@ export class OrtusRecordsHome extends LitElement {
         margin: 48px;
         color: var(--ortus-text-3);
       }
+      @media (max-width: 720px) {
+        table {
+          inline-size: max-content;
+          min-inline-size: calc(100% - 24px);
+          margin: 12px;
+        }
+        td a {
+          display: inline-block;
+          padding-block: 12px;
+        }
+        .empty {
+          margin: 24px;
+        }
+      }
     `,
   ];
 
@@ -615,12 +696,12 @@ export class OrtusRecordsHome extends LitElement {
   override render() {
     return html`<header><strong>${t(this.localize, "records")}</strong><span class="spacer"></span><a class="button" href="/records?read=1">${t(this.localize, "mustRead")}</a></header>
       ${this.list.length
-        ? html`<table>
+        ? html`<div class="scroll"><table>
             <thead><tr><th>${t(this.localize, "reference")}</th><th>${t(this.localize, "titleWord")}</th><th>${t(this.localize, "caseWord")}</th><th>${t(this.localize, "filedWord")}</th><th>${t(this.localize, "keepUntil")}</th></tr></thead>
             <tbody>
               ${this.list.map((r) => html`<tr><td class="mono">${r.reference}</td><td><a href=${`/records?record=${encodeURIComponent(r.id)}`}>${r.title}</a></td><td class="mono">${r.case}</td><td>${stamp(r.filedAt)}</td><td>${day(r.keepUntil)}</td></tr>`)}
             </tbody>
-          </table>`
+          </table></div>`
         : this.loaded
           ? html`<p class="empty" role="status">${t(this.localize, "noRecords")}</p>`
           : nothing}`;
