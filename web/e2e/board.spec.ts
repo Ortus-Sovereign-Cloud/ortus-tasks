@@ -45,6 +45,17 @@ test("a project board", async ({ page }) => {
   await expect(column(en.waiting)).toContainText("Overdue 1 day");
   await expect(column(en.todo)).toContainText("0 of 4");
 
+  // Order in a column without dragging: up in the task's dialog.
+  await expect(column(en.todo).getByRole("button").first()).toContainText("Book 6 buses");
+  await column(en.todo).getByRole("button", { name: /Close road R-12/ }).click();
+  const moving = board.getByRole("dialog", { name: "Close road R-12 and divert traffic" });
+  await expect(moving.getByRole("button", { name: en.moveDown })).toBeDisabled();
+  await moving.getByRole("button", { name: en.moveUp }).click();
+  await expect(column(en.todo).getByRole("button").first()).toContainText("Close road R-12");
+  await expect(moving.getByRole("button", { name: en.moveUp })).toBeDisabled();
+  await expect(moving.getByRole("button", { name: en.moveDown })).toBeFocused();
+  await moving.getByRole("button", { name: en.cancel }).click();
+
   // Dragged to In progress.
   await column(en.todo).getByRole("button", { name: /Close road R-12/ }).dragTo(column(en.doing));
   await expect(column(en.doing)).toContainText("Close road R-12");

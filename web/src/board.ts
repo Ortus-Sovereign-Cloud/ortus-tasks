@@ -652,6 +652,25 @@ export class OrtusTasksBoard extends LitElement {
     </button>`;
   }
 
+  /** Up and down in its column without dragging (WCAG 2.5.7). */
+  private order(x: Task): TemplateResult | typeof nothing {
+    const cards = (this.project?.tasks ?? []).filter((c) => c.state === x.state);
+    const at = cards.findIndex((c) => c.id === x.id);
+    if (at < 0 || cards.length < 2) return nothing;
+    const go = async (before: string | undefined): Promise<void> => {
+      await this.move(x.id, x.state, before);
+      await this.updateComplete;
+      // At the top or the bottom its button turns off: focus stays in the group.
+      const buttons = [...this.renderRoot.querySelectorAll<HTMLButtonElement>(".order button")];
+      const focused = buttons.find((b) => b.matches(":focus"));
+      if (!focused || focused.disabled) buttons.find((b) => !b.disabled)?.focus();
+    };
+    return html`<div class="row order" role="group" aria-label=${t(this.localize, "orderInColumn")}>
+      <button type="button" class="button" ?disabled=${at === 0} @click=${() => go(cards[at - 1]!.id)}>${t(this.localize, "moveUp")}</button>
+      <button type="button" class="button" ?disabled=${at === cards.length - 1} @click=${() => go(cards[at + 2]?.id)}>${t(this.localize, "moveDown")}</button>
+    </div>`;
+  }
+
   private board(p: Project): TemplateResult {
     return html`<div class="columns">
       ${COLUMNS.map(([col, key, color]) => {
@@ -745,6 +764,7 @@ export class OrtusTasksBoard extends LitElement {
             ${COLUMNS.map(([c, key]) => html`<option value=${c} ?selected=${c === (x?.state ?? "todo")}>${t(this.localize, key)}</option>`)}
           </select>
         </label>
+        ${x ? this.order(x) : nothing}
         ${x
           ? html`<fieldset class="field">
               <legend>${t(this.localize, "checklist")}</legend>
